@@ -1,13 +1,15 @@
-﻿
+﻿using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
-public class Mover : MonoBehaviour {
+public class Mover : MonoBehaviour
+{
 
-	// Use this for initialization
     public float speed;
+	// Use this for initialization
 	void Start ()
 	{
-	    GetComponent<Rigidbody>().velocity = transform.forward*speed;
+	    GetComponent<Rigidbody>().velocity = transform.forward * speed * Time.deltaTime;
 	}
 	
 	
