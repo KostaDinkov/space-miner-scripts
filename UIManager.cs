@@ -21,10 +21,15 @@ public class UIManager : MonoBehaviour
             return;
         }
        
+       
+        
+    }
+
+    void Start()
+    {
         this.RestartButton.onClick.AddListener(GameController.instance.RestartLevel);
         this.NextLevelButton.onClick.AddListener(GameController.instance.NextLevel);
         this.NextLevelButton.interactable = false;
-        
     }
 
    
