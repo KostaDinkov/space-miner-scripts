@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Collections;
+using Assets.Scripts.Commands;
+using Assets.Scripts.Commands.PlayerCommands;
+
 using UnityEngine;
 
 [Serializable]
@@ -12,30 +15,49 @@ public class Playercontroller : MonoBehaviour
 {
     public Boundary boundary;
     public float fireRate = 0.5f;
-    private float gameSpeed = 5f;
 
-    private bool isMoving;
-    private bool isRotating;
+    private float gameSpeed = 5f;
+    private CommandQueue commandQueue = new CommandQueue();
+
+    private bool isIdle = true;
     private float nextfire;
     private readonly float playerRotationSpeed = 200;
     private readonly float playerSpeed = 4;
     public GameObject shot;
     public Transform shotSpawn;
     public float speed;
-
+    public MoveForward MoveForwardCommand;
+    public RotateLeft RotateLeftCommand;
+    public RotateRight RotateRightCommand;
     private float unitSize = 1;
+
+    public Playercontroller()
+    {
+        this.MoveForwardCommand = new MoveForward(this);
+        this.RotateLeftCommand = new RotateLeft(this);
+        this.RotateRightCommand = new RotateRight(this);
+    }
 
     private void Update()
     {
-        var particleSystems = GetComponentsInChildren<ParticleSystem>();
+        //execute the next command in the command queue
+        if (this.isIdle && !this.commandQueue.IsEmpty())
+        {
+            commandQueue.Execute();
+        }
 
+        var particleSystems = GetComponentsInChildren<ParticleSystem>();
         foreach (var psys in particleSystems)
         {
             var newMain = psys.main;
             newMain.startRotation = transform.rotation.eulerAngles.y * Mathf.Deg2Rad;
         }
 
-        // Player controls
+        ReadInput();
+    }
+
+    private void ReadInput()
+    {
         if (Input.GetButton("Fire1") && Time.time > nextfire)
         {
             nextfire = Time.time + fireRate;
@@ -43,24 +65,46 @@ public class Playercontroller : MonoBehaviour
             GetComponent<AudioSource>().Play();
         }
 
-        if (Input.GetKeyDown(KeyCode.I) && !isMoving) StartCoroutine(MoveForward(gameObject, playerSpeed, 2));
-
-        if (Input.GetKeyDown(KeyCode.J) && !isRotating)
+        if (Input.GetKeyDown(KeyCode.I) )
         {
-            var rotation = Quaternion.Euler(0, -90, 0);
-            StartCoroutine(RotateOverSpeed(gameObject, rotation, playerRotationSpeed));
+            this.commandQueue.Enqueue(MoveForwardCommand);
+            
         }
 
-        if (Input.GetKeyDown(KeyCode.L) && !isRotating) RotateRight(90);
+        if (Input.GetKeyDown(KeyCode.J)  )
+        {
+            this.commandQueue.Enqueue(RotateLeftCommand);
+        }
+
+        if (Input.GetKeyDown(KeyCode.L) )
+        {
+            this.commandQueue.Enqueue(RotateRightCommand);
+        }
     }
 
-    public void RotateRight(float degrees)
+    public IEnumerator MoveForward()
+    {
+        isIdle = false;
+        var endPosition = this.transform.position + transform.forward * GameData.gridSize;
+        endPosition = CheckBoundaries(endPosition);
+
+        while (this.transform.position != endPosition)
+        {
+            this.transform.position =
+                Vector3.MoveTowards(this.transform.position, endPosition, speed * Time.deltaTime);
+            yield return new WaitForEndOfFrame();
+        }
+
+        isIdle = true;
+    }
+
+    public void RotateRight(float degrees = 90)
     {
         var rotation = Quaternion.Euler(0, degrees, 0);
         StartCoroutine(RotateOverSpeed(gameObject, rotation, playerRotationSpeed));
     }
 
-    public void RotateLeft(float degrees)
+    public void RotateLeft(float degrees = 90)
     {
         var rotation = Quaternion.Euler(0, -degrees, 0);
         StartCoroutine(RotateOverSpeed(gameObject, rotation, playerRotationSpeed));
@@ -69,7 +113,7 @@ public class Playercontroller : MonoBehaviour
 
     private IEnumerator RotateOverSpeed(GameObject objectToMove, Quaternion end, float speed)
     {
-        isRotating = true;
+        isIdle = false;
         var endRotation = objectToMove.transform.rotation * end;
         while (objectToMove.transform.rotation != endRotation)
         {
@@ -78,24 +122,9 @@ public class Playercontroller : MonoBehaviour
             yield return new WaitForEndOfFrame();
         }
 
-        isRotating = false;
+        isIdle = true;
     }
 
-
-    public IEnumerator MoveForward(GameObject objectToMove, float speed, float distance)
-    {
-        isMoving = true;
-        var endPosition = objectToMove.transform.position + transform.forward * distance;
-        endPosition = CheckBoundaries(endPosition);
-
-        while (objectToMove.transform.position != endPosition)
-        {
-            objectToMove.transform.position =
-                Vector3.MoveTowards(objectToMove.transform.position, endPosition, speed * Time.deltaTime);
-            yield return new WaitForEndOfFrame();
-        }
-        isMoving = false;
-    }
 
     private Vector3 CheckBoundaries(Vector3 endPosition)
     {
